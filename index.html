@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FusionAI Sentient Trader</title>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font from Google Fonts for a clean look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lightweight Charts for real-time charting -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.umd.js"></script>
+    <style>
+        /* Apply Inter font to the entire body */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar styles for better aesthetics in dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2d3748; /* Matches bg-gray-800 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4a5568; /* Matches bg-gray-600 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* Matches bg-gray-500 */
+        }
+        /* Styles for the custom modal (replaces alert/confirm) */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top of everything */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.7); /* Black with 70% opacity */
+            /* Flexbox for centering the modal content */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #2d3748; /* Matches bg-gray-800 */
+            margin: auto; /* Centers the modal content */
+            padding: 20px;
+            border-radius: 0.5rem; /* Rounded corners */
+            width: 80%;
+            max-width: 500px; /* Max width for readability */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Subtle shadow */
+            color: #e2e8f0; /* Light text color */
+            animation: fadeIn 0.3s ease-out; /* Smooth entrance animation */
+        }
+        .close-button {
+            color: #a0aec0; /* Light gray color for close button */
+            float: right; /* Position to the right */
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #cbd5e0; /* Lighter on hover/focus */
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Keyframe animation for modal fade-in */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Styling for a simple loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey base */
+            border-top: 4px solid #3b82f6; /* Blue spinning part */
+            border-radius: 50%; /* Makes it round */
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite; /* Spin animation */
+        }
+        /* Keyframe animation for spinner */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Container for charts (e.g., equity curve) */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px; /* Fixed height for consistency */
+            background-color: #1a202c; /* Matches bg-gray-900 */
+            border-radius: 0.5rem;
+            overflow: hidden; /* Ensures chart stays within bounds */
+        }
+        /* Styling for trade log items based on their action/outcome */
+        .trade-log-item {
+            border-left-width: 4px; /* Left border for visual indication */
+        }
+        .trade-log-item.open { border-color: #3b82f6; /* Blue for open trades */ }
+        .trade-log-item.close-tp { border-color: #10b981; /* Green for Take Profit */ }
+        .trade-log-item.close-sl { border-color: #ef4444; /* Red for Stop Loss */ }
+        .trade-log-item.close-eod { border-color: #fbbf24; /* Yellow for End of Day closure */ }
+        .trade-log-item.failed-open { border-color: #ef4444; /* Red for failed open trades */ }
+
+        /* Custom toggle switch for auto-trading */
+        .toggle-checkbox {
+            opacity: 0; /* Hide default checkbox */
+            width: 0;
+            height: 0;
+        }
+        .toggle-label {
+            display: block;
+            width: 40px; /* Width of the toggle track */
+            height: 20px; /* Height of the toggle track */
+            border-radius: 9999px; /* Pill shape */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            position: relative;
+        }
+        .toggle-label:before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px; /* Size of the toggle knob */
+            height: 16px;
+            border-radius: 9999px;
+            background-color: #fff;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s ease-in-out;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6; /* Blue when checked */
+        }
+        .toggle-checkbox:checked + .toggle-label:before {
+            transform: translateX(20px); /* Move knob to the right when checked */
+        }
+
+        /* Glassmorphism/Traslucency effect */
+        .glass-effect {
+            background-color: rgba(45, 55, 72, 0.7); /* bg-gray-700 with transparency */
+            backdrop-filter: blur(5px); /* Apply blur effect */
+            -webkit-backdrop-filter: blur(5px); /* For Safari */
+            border: 1px solid rgba(74, 85, 104, 0.5); /* Semi-transparent border */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 antialiased min-h-screen flex flex-col">
+
+    <!-- Custom Modal for displaying messages (replaces alert/confirm) -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content glass-effect">
+            <span class="close-button" onclick="document.getElementById('messageModal').style.display='none'">&times;</span>
+            <p id="modalMessage" class="text-lg font-semibold mb-4"></p>
+            <div id="modalDetails" class="text-sm text-gray-400"></div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="document.getElementById('messageModal').style.display='none'" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition duration-200">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Section - Initially visible to get credentials -->
+    <section id="login-section" class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700 transform transition-all duration-300 hover:scale-105">
+            <h2 class="text-4xl font-extrabold text-center text-blue-500 mb-8 tracking-tight">FusionAI Sentient</h2>
+            <p class="text-gray-400 text-center mb-6">Accedi per sbloccare la tua intelligenza di trading quantistica.</p>
+
+            <!-- MT5 Login Form -->
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="mt5Login" class="block text-gray-300 text-sm font-medium mb-2">MT5 Login</label>
+                    <input type="text" id="mt5Login" name="mt5Login" required class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-gray-100 placeholder-gray-500">
+                </div>
+                <div>
+                    <label for="mt5Password" class="block text-gray-300 text-sm font-medium mb-2">MT5 Password</label>
+                    <input type="password" id="mt5Password" name="mt5Password" required class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-gray-100 placeholder-gray-500">
+                </div>
+                <div>
+                    <label for="mt5Server" class="block text-gray-300 text-sm font-medium mb-2">MT5 Server</label>
+                    <input type="text" id="mt5Server" name="mt5Server" required class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-gray-100 placeholder-gray-500">
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
+                        <span id="mt5LoginBtnText">Accedi a MT5</span>
+                        <span id="mt5LoginLoader" class="loader ml-2 hidden"></span>
+                    </button>
+                    <p id="mt5LoginMessage" class="text-sm mt-3"></p>
+                </div>
+            </form>
+
+            <div class="border-t border-gray-700 my-8"></div>
+
+            <!-- AI Configuration Form -->
+            <h3 class="text-2xl font-semibold text-center text-blue-400 mb-6">Configura AI Brain</h3>
+            <form id="ai-config-form" class="space-y-6">
+                <div>
+                    <label for="geminiApiKey" class="block text-gray-300 text-sm font-medium mb-2">Gemini API Key</label>
+                    <input type="text" id="geminiApiKey" name="geminiApiKey" required class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-gray-100 placeholder-gray-500" value="YOUR_GEMINI_API_KEY">
+                </div>
+                <div>
+                    <label for="openaiApiKey" class="block text-gray-300 text-sm font-medium mb-2">OpenAI API Key (Opzionale)</label>
+                    <input type="text" id="openaiApiKey" name="openaiApiKey" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-gray-100 placeholder-gray-500" value="YOUR_OPENAI_API_KEY">
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75">
+                        <span id="aiConfigBtnText">Configura AI</span>
+                        <span id="aiConfigLoader" class="loader ml-2 hidden"></span>
+                    </button>
+                    <p id="aiConfigMessage" class="text-sm mt-3"></p>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Dashboard Section - Hidden until successful login -->
+    <section id="dashboard-section" class="hidden flex-1 flex flex-col lg:flex-row bg-gray-900 overflow-hidden">
+        <!-- Sidebar for navigation and key information -->
+        <aside class="w-full lg:w-1/4 bg-gray-800 p-6 border-r border-gray-700 shadow-xl flex flex-col overflow-y-auto">
+            <h1 class="text-3xl font-extrabold text-blue-500 mb-6">FusionAI Dashboard</h1>
+
+            <!-- System Status Display -->
+            <div class="bg-gray-700 p-4 rounded-lg mb-6 shadow-md border border-gray-600 glass-effect">
+                <h2 class="text-xl font-semibold mb-3 text-gray-200">Stato del Sistema</h2>
+                <p class="text-sm text-gray-300 mb-2"><span class="font-medium">MT5 Connesso:</span> <span id="mt5Status" class="font-bold text-red-500">No</span></p>
+                <p class="text-sm text-gray-300 mb-2"><span class="font-medium">AI Inizializzata:</span> <span id="aiStatus" class="font-bold text-red-500">No</span></p>
+                <div class="mt-4 text-gray-300 text-xs">
+                    <p>Monitor: <span id="monitorStatus" class="font-bold text-red-500">Offline</span></p>
+                    <p>Scout: <span id="scoutStatus" class="font-bold text-red-500">Offline</span></p>
+                    <p>Position Manager: <span id="pmStatus" class="font-bold text-red-500">Offline</span></p>
+                </div>
+            </div>
+
+            <!-- Account Information -->
+            <div class="bg-gray-700 p-4 rounded-lg mb-6 shadow-md border border-gray-600 glass-effect">
+                <h2 class="text-xl font-semibold mb-3 text-gray-200">Info Conto</h2>
+                <p class="text-sm text-gray-300"><span class="font-medium">Balance:</span> <span id="accountBalance" class="font-bold">N/A</span></p>
+                <p class="text-sm text-gray-300"><span class="font-medium">Equity:</span> <span id="accountEquity" class="font-bold">N/A</span></p>
+                <p class="text-sm text-gray-300"><span class="font-medium">Profit:</span> <span id="accountProfit" class="font-bold">N/A</span></p>
+                <p class="text-sm text-gray-300"><span class="font-medium">Free Margin:</span> <span id="accountFreeMargin" class="font-bold">N/A</span></p>
+                <div class="mt-3 border-t border-gray-600 pt-3">
+                    <p class="text-sm text-gray-300"><span class="font-medium">Daily Drawdown:</span> <span id="dailyDD" class="font-bold">0.00%</span> (Max: <span id="maxDailyDD" class="font-bold">0.00%</span>)</p>
+                    <p class="text-sm text-gray-300"><span class="font-medium">Daily Profit:</span> <span id="dailyProfit" class="font-bold">0.00%</span> (Target: <span id="targetDailyProfit" class="font-bold">0.00%</span>)</p>
+                    <p class="text-sm text-gray-300"><span class="font-medium">Weekly Drawdown:</span> <span id="weeklyDD" class="font-bold">0.00%</span> (Max: <span id="maxWeeklyDD" class="font-bold">0.00%</span>)</p>
+                    <p class="text-sm text-gray-300"><span class="font-medium">Weekly Profit:</span> <span id="weeklyProfit" class="font-bold">0.00%</span> (Target: <span id="targetWeeklyProfit" class="font-bold">0.00%</span>)</p>
+                </div>
+            </div>
+
+            <!-- Auto-Trade Toggle Switch -->
+            <div class="bg-gray-700 p-4 rounded-lg mb-6 shadow-md border border-gray-600 glass-effect flex items-center justify-between">
+                <label for="autoTradeToggle" class="text-xl font-semibold text-gray-200 cursor-pointer">Auto-Trading</label>
+                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox" name="autoTradeToggle" id="autoTradeToggle" class="toggle-checkbox">
+                    <label for="autoTradeToggle" class="toggle-label"></label>
+                </div>
+            </div>
+
+            <!-- Configuration Section with editable fields -->
+            <div class="bg-gray-700 p-4 rounded-lg mb-6 shadow-md border border-gray-600 glass-effect">
+                <h2 class="text-xl font-semibold mb-3 text-gray-200">Configurazione Base</h2>
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label for="riskPct" class="block text-gray-300 text-sm font-medium mb-1">Rischio % per Trade:</label>
+                        <input type="number" id="riskPct" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="0.1" min="0.1">
+                    </div>
+                    <div>
+                        <label for="atrMultiplier" class="block text-gray-300 text-sm font-medium mb-1">ATR SL Moltiplicatore:</label>
+                        <input type="number" id="atrMultiplier" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="0.1" min="0.1">
+                    </div>
+                    <div>
+                        <label for="rrRatio" class="block text-gray-300 text-sm font-medium mb-1">Rischio/Rendimento Ratio:</label>
+                        <input type="number" id="rrRatio" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="0.1" min="0.1">
+                    </div>
+                    <div>
+                        <label for="slippagePoints" class="block text-gray-300 text-sm font-medium mb-1">Slippage Punti:</label>
+                        <input type="number" id="slippagePoints" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="1" min="0">
+                    </div>
+                    <!-- NUOVI CAMPI DI CONFIGURAZIONE -->
+                    <div>
+                        <label for="maxOpenTradesPerSymbol" class="block text-gray-300 text-sm font-medium mb-1">Max Operazioni per Simbolo:</label>
+                        <input type="number" id="maxOpenTradesPerSymbol" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="1" min="1">
+                    </div>
+                    <div>
+                        <label for="tpLevelsMultiplier" class="block text-gray-300 text-sm font-medium mb-1">Moltiplicatori TP (Es: 1.0,1.5,2.0):</label>
+                        <input type="text" id="tpLevelsMultiplier" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200">
+                    </div>
+                    <div>
+                        <label for="maxLotXauBtc" class="block text-gray-300 text-sm font-medium mb-1">Max Lotto XAU/BTC:</label>
+                        <input type="number" id="maxLotXauBtc" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="0.01" min="0.01">
+                    </div>
+                    <div>
+                        <label for="maxLotOtherSymbols" class="block text-gray-300 text-sm font-medium mb-1">Max Lotto Altri Simboli:</label>
+                        <input type="number" id="maxLotOtherSymbols" class="w-full px-3 py-1 rounded-md bg-gray-600 border border-gray-500 text-gray-200" step="0.01" min="0.01">
+                    </div>
+                </div>
+                <button id="updateConfigBtn" class="mt-4 w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold hover:bg-emerald-700 transition duration-300 shadow-md">Aggiorna Config</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area of the Dashboard -->
+        <main class="flex-1 p-6 overflow-y-auto flex flex-col space-y-6">
+            <!-- Live Chart Data & Sentiment Display - Most prominent area for analysis -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 glass-effect flex flex-col h-96">
+                <h2 class="text-2xl font-bold text-blue-400 mb-4">Grafico Live & Sentiment</h2>
+                <div class="flex items-center mb-4">
+                    <label for="chartSymbol" class="mr-2 text-gray-300">Simbolo:</label>
+                    <select id="chartSymbol" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-md px-3 py-2 mr-4 flex-grow sm:flex-grow-0">
+                        <!-- Symbols will be dynamically loaded here -->
+                    </select>
+                    <label for="chartTimeframe" class="mr-2 text-gray-300">Timeframe:</label>
+                    <select id="chartTimeframe" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-md px-3 py-2 flex-grow sm:flex-grow-0">
+                        <!-- Timeframes will be dynamically loaded here -->
+                    </select>
+                </div>
+                <div id="tradingview-chart-container" class="flex-grow rounded-md bg-gray-900 overflow-hidden">
+                    <!-- Lightweight Charts will be rendered here -->
+                </div>
+                <div id="sentimentDisplay" class="mt-4 bg-gray-700 p-4 rounded-md text-sm">
+                    <p class="text-gray-400">Sentiment: <span id="currentSentiment" class="font-medium">Caricamento...</span></p>
+                </div>
+            </div>
+
+            <!-- Chat with FusionAI Interface - Positioned below the main chart -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 glass-effect">
+                <h2 class="text-2xl font-bold text-blue-400 mb-4">Chatta con FusionAI</h2>
+                <div id="chatOutput" class="max-h-60 overflow-y-auto pr-2 bg-gray-700 p-4 rounded-md mb-4 text-sm space-y-2">
+                    <p class="text-gray-400">Chiedi all'AI un'analisi di mercato o della situazione attuale.</p>
+                </div>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-end">
+                    <div class="flex-grow flex items-center mb-2 sm:mb-0 sm:mr-2">
+                        <select id="chatSymbolSelect" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-md px-3 py-2 mr-2 flex-grow">
+                            <option value="">Simbolo (Tutti)</option> <!-- Opzione per analisi generale -->
+                            <!-- Symbols will be dynamically loaded here from backend config -->
+                        </select>
+                        <select id="chatTimeframeSelect" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-md px-3 py-2 flex-grow">
+                            <option value="">Timeframe (Generale)</option> <!-- Opzione per analisi generale -->
+                            <!-- Timeframes will be dynamically loaded here from backend config -->
+                        </select>
+                    </div>
+                    <!-- Chat Input Box - Larger -->
+                    <textarea id="chatInput" placeholder="La tua domanda all'AI..." rows="3" class="flex-grow px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-gray-100 placeholder-gray-500 mb-2 sm:mb-0 sm:mr-2 resize-y"></textarea>
+                    <button id="sendMessageBtn" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 shadow-md h-10">
+                        <span id="chatBtnText">Invia</span>
+                        <span id="chatLoader" class="loader ml-2 hidden"></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Open Positions Display - Moved to be alongside notifications/trade journal -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 glass-effect">
+                    <h2 class="text-2xl font-bold text-blue-400 mb-4">Posizioni Aperte</h2>
+                    <div id="openPositionsList" class="space-y-4">
+                        <p class="text-gray-400">Nessuna posizione aperta.</p>
+                    </div>
+                </div>
+
+                <!-- Notifications & AI Analysis Log -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 glass-effect">
+                    <h2 class="text-2xl font-bold text-blue-400 mb-4">Notifiche & AI Analysis</h2>
+                    <div id="notificationsList" class="max-h-80 overflow-y-auto pr-2 space-y-4">
+                        <p class="text-gray-400">Nessuna notifica recente.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backtesting Section -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 glass-effect">
+                <h2 class="text-2xl font-bold text-blue-400 mb-4">Backtesting</h2>
+                <form id="backtestForm" class="space-y-4">
+                    <div>
+                        <label for="backtestSymbol" class="block text-gray-300 text-sm font-medium mb-1">Simbolo:</label>
+                        <select id="backtestSymbol" class="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-100">
+                            <!-- Symbols will be dynamically loaded here -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="backtestTimeframe" class="block text-gray-300 text-sm font-medium mb-1">Timeframe:</label>
+                        <select id="backtestTimeframe" class="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-100">
+                            <!-- Timeframes will be dynamically loaded here -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="backtestStartDate" class="block text-gray-300 text-sm font-medium mb-1">Data Inizio:</label>
+                        <input type="date" id="backtestStartDate" class="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-100">
+                    </div>
+                    <div>
+                        <label for="backtestEndDate" class="block text-gray-300 text-sm font-medium mb-1">Data Fine:</label>
+                        <input type="date" id="backtestEndDate" class="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-100">
+                    </div>
+                    <div>
+                        <label for="backtestCapital" class="block text-gray-300 text-sm font-medium mb-1">Capitale Iniziale:</label>
+                        <input type="number" id="backtestCapital" value="10000" min="100" step="100" class="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 text-sm font-medium mb-1">Strategie da Testare:</label>
+                        <div id="strategyCheckboxes" class="grid grid-cols-2 gap-2 text-sm text-gray-300">
+                            <!-- Strategy checkboxes will be dynamically loaded -->
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded-lg font-semibold hover:bg-teal-700 transition duration-300 shadow-md">
+                        <span id="runBacktestBtnText">Avvia Backtest</span>
+                        <span id="backtestLoader" class="loader ml-2 hidden"></span>
+                    </button>
+                    <p id="backtestMessage" class="text-sm mt-3"></p>
+                </form>
+                <div id="backtestResults" class="mt-6">
+                    <h3 class="text-xl font-semibold text-gray-200 mb-3">Risultati Backtest</h3>
+                    <div id="backtestSummary" class="bg-gray-700 p-4 rounded-md text-sm">
+                        <p class="text-gray-400">I risultati appariranno qui dopo il completamento del backtest.</p>
+                    </div>
+                    <!-- Canvas for Equity Curve Chart -->
+                    <div id="equityChartContainer" class="chart-container mt-4">
+                        <canvas id="equityChart"></canvas>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-200 mb-3 mt-6">Dettaglio Trade Log</h3>
+                    <div id="backtestTradeLog" class="max-h-80 overflow-y-auto bg-gray-700 p-4 rounded-md text-sm">
+                        <p class="text-gray-400">Il log dei trade apparirà qui.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trade Journal Section -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 glass-effect">
+                <h2 class="text-2xl font-bold text-blue-400 mb-4">Registro Trade</h2>
+                <div id="tradeJournalList" class="max-h-96 overflow-y-auto pr-2 space-y-4 text-sm">
+                    <p class="text-gray-400">Nessun trade registrato.</p>
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000';
+        let elements = {};
+        let currentConfig = {};
+        let equityChartInstance = null;
+        let tradeChart = null; // Lightweight Charts instance
+        let candleSeries = null; // Candlestick series
+        let slPriceLine = null; // SL price line
+        let tpPriceLines = []; // Array for multiple TP price lines
+
+        function showMessageModal(message, details = '') {
+            if (message || details) {
+                elements.modalMessage.textContent = message;
+                elements.modalDetails.textContent = details;
+                elements.messageModal.style.display = 'flex';
+            } else {
+                elements.messageModal.style.display = 'none';
+            }
+        }
+
+        function toggleLoading(buttonTextElement, loaderElement, isLoading) {
+            if (isLoading) {
+                buttonTextElement.classList.add('hidden');
+                loaderElement.classList.remove('hidden');
+                loaderElement.closest('button').disabled = true;
+            } else {
+                buttonTextElement.classList.remove('hidden');
+                loaderElement.classList.add('hidden');
+                loaderElement.closest('button').disabled = false;
+            }
+        }
+
+        function formatCurrency(value, currency = 'USD') {
+            if (typeof value !== 'number') return 'N/A';
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(value);
+        }
+
+        function formatPercentage(value) {
+            if (typeof value !== 'number') return 'N/A';
+            return `${value.toFixed(2)}%`;
+        }
+
+        function getStatusColor(status) {
+            return status ? 'text-green-500' : 'text-red-500';
+        }
+
+        async function fetchStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/status`);
+                const data = await response.json();
+
+                elements.mt5Status.textContent = data.mt5_connected ? 'Sì' : 'No';
+                elements.mt5Status.className = `font-bold ${getStatusColor(data.mt5_connected)}`;
+                elements.aiStatus.textContent = data.ai_initialized ? 'Sì' : 'No';
+                elements.aiStatus.className = `font-bold ${getStatusColor(data.ai_initialized)}`;
+
+                elements.monitorStatus.textContent = data.threads_alive.monitor ? 'Online' : 'Offline';
+                elements.monitorStatus.className = getStatusColor(data.threads_alive.monitor);
+                elements.scoutStatus.textContent = data.threads_alive.scout ? 'Online' : 'Offline';
+                elements.scoutStatus.className = getStatusColor(data.threads_alive.scout);
+                elements.pmStatus.textContent = data.threads_alive.position_manager ? 'Online' : 'Offline';
+                elements.pmStatus.className = getStatusColor(data.threads_alive.position_manager);
+
+                if (data.account_info) {
+                    const currency = data.account_info.currency || 'USD';
+                    elements.accountBalance.textContent = formatCurrency(data.account_info.balance, currency);
+                    elements.accountEquity.textContent = formatCurrency(data.account_info.equity, currency);
+                    elements.accountProfit.textContent = formatCurrency(data.account_info.profit, currency);
+                    elements.accountFreeMargin.textContent = formatCurrency(data.account_info.margin_free, currency);
+
+                    elements.dailyDD.textContent = formatPercentage(data.account_info.current_daily_drawdown_percentage || 0);
+                    elements.maxDailyDD.textContent = formatPercentage(data.account_info.max_daily_drawdown_limit || 0);
+                    elements.dailyProfit.textContent = formatPercentage(data.account_info.current_daily_profit_percentage || 0);
+                    elements.targetDailyProfit.textContent = formatPercentage(data.account_info.daily_profit_target_limit || 0);
+                    elements.weeklyDD.textContent = formatPercentage(data.account_info.current_weekly_drawdown_percentage || 0);
+                    elements.maxWeeklyDD.textContent = formatPercentage(data.account_info.max_weekly_drawdown_limit || 0);
+                    elements.weeklyProfit.textContent = formatPercentage(data.account_info.current_weekly_profit_percentage || 0);
+                    elements.targetWeeklyProfit.textContent = formatPercentage(data.account_info.weekly_profit_target_limit || 0);
+
+                    elements.dailyDD.className = `font-bold ${data.account_info.current_daily_drawdown_percentage > data.account_info.max_daily_drawdown_limit ? 'text-red-500' : 'text-green-500'}`;
+                    elements.dailyProfit.className = `font-bold ${data.account_info.current_daily_profit_percentage >= data.account_info.daily_profit_target_limit ? 'text-green-500' : 'text-yellow-500'}`;
+                    elements.weeklyDD.className = `font-bold ${data.account_info.current_weekly_drawdown_percentage > data.account_info.max_weekly_drawdown_limit ? 'text-red-500' : 'text-green-500'}`;
+                    elements.weeklyProfit.className = `font-bold ${data.account_info.current_weekly_profit_percentage >= data.account_info.weekly_profit_target_limit ? 'text-green-500' : 'text-yellow-500'}`;
+
+                } else {
+                    elements.accountBalance.textContent = 'N/A';
+                    elements.accountEquity.textContent = 'N/A';
+                    elements.accountProfit.textContent = 'N/A';
+                    elements.accountFreeMargin.textContent = 'N/A';
+                    elements.dailyDD.textContent = '0.00%';
+                    elements.dailyProfit.textContent = '0.00%';
+                    elements.weeklyDD.textContent = '0.00%';
+                    elements.weeklyProfit.textContent = '0.00%';
+                }
+
+                renderOpenPositions(data.open_positions);
+
+                if (data.configuration && data.configuration.symbols && data.configuration.timeframes) {
+                    // Only populate if not already populated to avoid duplicate options on interval calls
+                    if (elements.chartSymbol.options.length === 0 || elements.chartSymbol.options[0].value === "") { 
+                        populateSelect(elements.chartSymbol, data.configuration.symbols);
+                        populateSelect(elements.backtestSymbol, data.configuration.symbols);
+                        populateSelect(elements.chatSymbolSelect, data.configuration.symbols, true); 
+                    }
+                    if (elements.chartTimeframe.options.length === 0 || elements.chartTimeframe.options[0].value === "") { 
+                        populateSelect(elements.chartTimeframe, data.configuration.timeframes);
+                        populateSelect(elements.backtestTimeframe, data.configuration.timeframes);
+                        populateSelect(elements.chatTimeframeSelect, data.configuration.timeframes, true); 
+                    }
+                    renderStrategyCheckboxes(data.configuration.active_strategies);
+
+                    currentConfig = data.configuration;
+                    elements.riskPct.value = currentConfig.risk_percentage_per_trade || '';
+                    elements.atrMultiplier.value = currentConfig.atr_sl_multiplier || '';
+                    elements.rrRatio.value = currentConfig.risk_reward_ratio || '';
+                    elements.slippagePoints.value = currentConfig.slippage_points || '';
+                    elements.autoTradeToggle.checked = currentConfig.auto_trade_enabled;
+                    elements.maxOpenTradesPerSymbol.value = currentConfig.max_open_trades_per_symbol || '';
+                    elements.tpLevelsMultiplier.value = (currentConfig.tp_levels_multiplier || []).join(',');
+                    elements.maxLotXauBtc.value = currentConfig.max_lot_xau_btc || '';
+                    elements.maxLotOtherSymbols.value = currentConfig.max_lot_other_symbols || '';
+
+
+                    const selectedSymbol = elements.chartSymbol.value || data.configuration.symbols[0]; 
+                    if (data.latest_sentiment && data.latest_sentiment[selectedSymbol]) {
+                        elements.currentSentiment.textContent = data.latest_sentiment[selectedSymbol].text;
+                        const sentimentValue = data.latest_sentiment[selectedSymbol].value;
+                        if (sentimentValue > 50) elements.currentSentiment.className = 'font-bold text-green-500';
+                        else if (sentimentValue < -50) elements.currentSentiment.className = 'font-bold text-red-500';
+                        else if (sentimentValue < 0) elements.currentSentiment.className = 'font-bold text-yellow-500';
+                        else if (sentimentValue > 0) elements.currentSentiment.className = 'font-bold text-blue-400';
+                        else elements.currentSentiment.className = 'font-bold text-gray-400';
+                    }
+                }
+
+                if (data.mt5_connected && data.ai_initialized) {
+                    elements.loginSection.classList.add('hidden');
+                    elements.dashboardSection.classList.remove('hidden');
+                } else {
+                    elements.loginSection.classList.remove('hidden');
+                    elements.dashboardSection.classList.add('hidden');
+                }
+
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+
+        async function fetchNotifications() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/get_notifications`);
+                const data = await response.json();
+                renderNotifications(data.notifications);
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
+            }
+        }
+
+        async function fetchTradeJournal() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/get_trade_journal`);
+                const data = await response.json();
+                renderTradeJournal(data.trades);
+            } catch (error) {
+                console.error('Error fetching trade journal:', error);
+            }
+        }
+
+        function populateSelect(selectElement, items, includeEmptyOption = false) {
+            selectElement.innerHTML = ''; 
+            if (includeEmptyOption) {
+                const emptyOption = document.createElement('option');
+                emptyOption.value = "";
+                emptyOption.textContent = selectElement.id === 'chatSymbolSelect' ? "Simbolo (Tutti)" : "Timeframe (Generale)";
+                selectElement.appendChild(emptyOption);
+            }
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item;
+                option.textContent = item;
+                selectElement.appendChild(option);
+            });
+        }
+
+        function renderOpenPositions(positions) {
+            elements.openPositionsList.innerHTML = ''; 
+            if (positions.length === 0) {
+                elements.openPositionsList.innerHTML = '<p class="text-gray-400">Nessuna posizione aperta.</p>';
+                return;
+            }
+
+            positions.forEach(pos => {
+                const profitLoss = pos.profit_loss_per_unit ? pos.profit_loss_per_unit * pos.volume : pos.profit;
+                const profitLossClass = profitLoss >= 0 ? 'text-green-400' : 'text-red-400';
+                const typeClass = pos.type === 0 ? 'text-blue-400' : 'text-yellow-400'; 
+
+                const posDiv = `
+                    <div class="bg-gray-700 p-4 rounded-md shadow-sm border border-gray-600 glass-effect">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-lg font-semibold text-gray-100">${pos.symbol}</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${typeClass}">${pos.type === 0 ? 'BUY' : 'SELL'}</span>
+                        </div>
+                        <p class="text-sm text-gray-300">Volume: <span class="font-medium">${pos.volume}</span></p>
+                        <p class="text-sm text-gray-300">Entry: <span class="font-medium">${pos.price_open.toFixed(pos.digits)}</span></p>
+                        <p class="text-sm text-gray-300">Current: <span class="font-medium">${pos.price_current.toFixed(pos.digits)}</span></p>
+                        <p class="text-sm text-gray-300">P/L: <span class="font-bold ${profitLossClass}">${formatCurrency(profitLoss)}</span></p>
+                        <p class="text-sm text-gray-300">SL: <span class="font-medium">${pos.sl !== 0 ? pos.sl.toFixed(pos.digits) : 'N/A'}</span></p>
+                        <p class="text-sm text-gray-300">TP: <span class="font-medium">${pos.tp !== 0 ? pos.tp.toFixed(pos.digits) : 'N/A'}</span></p>
+                        <p class="text-xs text-gray-400 mt-2">Ticket: ${pos.ticket}</p>
+                        ${pos.is_hedged ? '<p class="text-xs text-blue-300 mt-1">Hedging Attivo</p>' : ''}
+                    </div>
+                `;
+                elements.openPositionsList.insertAdjacentHTML('beforeend', posDiv);
+            });
+        }
+
+        function renderNotifications(notifications) {
+            elements.notificationsList.innerHTML = ''; 
+            if (notifications.length === 0) {
+                elements.notificationsList.innerHTML = '<p class="text-gray-400">Nessuna notifica recente.</p>';
+                return;
+            }
+
+            notifications.forEach(notif => {
+                const typeClass = {
+                    "SUCCESS": "border-green-500 bg-green-900/20",
+                    "INFO": "border-blue-500 bg-blue-900/20",
+                    "WARNING": "border-yellow-500 bg-yellow-900/20",
+                    "ERROR": "border-red-500 bg-red-900/20",
+                    "BUY": "border-green-500 bg-green-900/20", 
+                    "SELL": "border-red-500 bg-red-900/20",   
+                    "WAIT": "border-gray-500 bg-gray-900/20", 
+                    "DEFAULT": "border-gray-500 bg-gray-900/20", 
+                }[notif.data.type || notif.data.action || 'DEFAULT']; 
+
+                const confidence = notif.data.confidence_score !== undefined ? `Confidenza: ${notif.data.confidence_score}%` : '';
+                const symbolAndTimeframe = notif.data.symbol ? `(${notif.data.symbol}${notif.data.timeframe ? ' ' + notif.data.timeframe : ''})` : '';
+
+                const notificationHtml = `
+                    <div class="p-3 rounded-md border-l-4 ${typeClass}">
+                        <p class="text-xs text-gray-400 mb-1">${new Date(notif.timestamp).toLocaleString()}</p>
+                        <p class="text-gray-100 font-medium">${notif.data.analysis_text || notif.data.message} ${symbolAndTimeframe}</p>
+                        ${confidence ? `<p class="text-xs text-gray-300 mt-1">${confidence}</p>` : ''}
+                    </div>
+                `;
+                elements.notificationsList.insertAdjacentHTML('afterbegin', notificationHtml); 
+            });
+        }
+
+        function renderTradeJournal(trades) {
+            elements.tradeJournalList.innerHTML = ''; 
+            if (trades.length === 0) {
+                elements.tradeJournalList.innerHTML = '<p class="text-gray-400">Nessun trade registrato.</p>';
+                return;
+            }
+
+            trades.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            trades.forEach(trade => {
+                let tradeClass = 'trade-log-item';
+                let profitLossDisplay = ''; 
+
+                if (trade.action.startsWith('Open')) { 
+                    tradeClass += ' open border-blue-500';
+                } else if (trade.action.startsWith('CLOSE')) {
+                    if (trade.profit_loss > 0) {
+                        tradeClass += ' close-tp border-green-500';
+                        profitLossDisplay = `<p class="text-sm font-semibold text-green-400">P/L: ${formatCurrency(trade.profit_loss)}</p>`;
+                    } else {
+                        tradeClass += ' close-sl border-red-500';
+                        profitLossDisplay = `<p class="text-sm font-semibold text-red-400">P/L: ${formatCurrency(trade.profit_loss)}</p>`;
+                    }
+                    if (trade.action === 'CLOSE_EOD') { 
+                        tradeClass = tradeClass.replace('border-green-500', 'border-yellow-500').replace('border-red-500', 'border-yellow-500');
+                    }
+                } else if (trade.action.startsWith('Failed Open')) {
+                    tradeClass += ' failed-open border-red-500';
+                }
+
+                const entryPrice = trade.entry_price ? `Entry: ${trade.entry_price.toFixed(5)}` : 'N/A';
+                const closePrice = trade.close_price ? `Close: ${trade.close_price.toFixed(5)}` : 'N/A';
+                const sl = trade.sl !== undefined && trade.sl !== 0 ? `SL: ${trade.sl.toFixed(5)}` : 'N/A'; 
+                const tp = trade.tp !== undefined && trade.tp !== 0 ? `TP: ${trade.tp.toFixed(5)}` : 'N/A'; 
+                const aiConfidence = trade.ai_confidence ? `AI Confidenza: ${trade.ai_confidence}%` : '';
+
+                const tradeHtml = `
+                    <div class="bg-gray-700 p-3 rounded-md shadow-sm ${tradeClass}">
+                        <p class="text-xs text-gray-400 mb-1">${new Date(trade.timestamp).toLocaleString()}</p>
+                        <p class="text-gray-100 font-semibold">${trade.action} ${trade.symbol} - ${trade.type} ${trade.volume} lotti</p>
+                        <p class="text-sm text-gray-300">${entryPrice} ${closePrice}</p>
+                        <p class="text-sm text-gray-300">${sl} ${tp}</p>
+                        ${profitLossDisplay}
+                        <p class="text-xs text-gray-400 mt-1">Strategy: ${trade.strategy || 'N/A'}</p>
+                        ${aiConfidence ? `<p class="text-xs text-gray-400">${aiConfidence}</p>` : ''}
+                        ${trade.ai_analysis ? `<p class="text-xs text-gray-400 mt-1">AI: ${trade.ai_analysis}</p>` : ''}
+                    </div>
+                `;
+                elements.tradeJournalList.insertAdjacentHTML('beforeend', tradeHtml);
+            });
+        }
+
+        async function fetchChartDataAndSentiment() {
+            const symbol = elements.chartSymbol.value;
+            const timeframe = elements.chartTimeframe.value;
+            if (!symbol || !timeframe) {
+                elements.tradingviewChartContainer.innerHTML = `<p class="text-gray-400 text-center py-8">Seleziona un simbolo e un timeframe per visualizzare il grafico.</p>`;
+                elements.currentSentiment.textContent = 'N/A'; // Update sentiment display directly
+                return;
+            }
+            
+            elements.tradingviewChartContainer.innerHTML = `<p class="text-gray-400 text-center py-8">Caricamento dati grafico...</p>`;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/get_chart_data/${symbol}/${timeframe}`);
+                const data = await response.json();
+
+                const config = await getBackendConfig(); 
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    renderTradingViewChart(data.data, symbol, timeframe, config);
+                } else {
+                    elements.tradingviewChartContainer.innerHTML = `<p class="text-red-400 text-center py-8">Errore nel caricamento dei dati del grafico: ${data.message || 'Nessun dato.'}</p>`;
+                }
+            } catch (error) {
+                elements.tradingviewChartContainer.innerHTML = `<p class="text-red-400 text-center py-8">Errore di rete nel caricamento dati grafico: ${error.message}</p>`;
+                console.error('Error fetching chart data:', error);
+            }
+
+            await fetchStatus(); 
+        }
+
+        function renderTradingViewChart(data, symbol, timeframe, config) {
+            if (tradeChart) {
+                tradeChart.remove();
+                tradeChart = null;
+                candleSeries = null;
+                slPriceLine = null;
+                tpPriceLines = [];
+            }
+            elements.tradingviewChartContainer.innerHTML = ''; 
+
+            if (!data || data.length === 0) {
+                elements.tradingviewChartContainer.innerHTML = `<p class="text-gray-400 text-center py-8">Nessun dato grafico disponibile per ${symbol} ${timeframe}.</p>`;
+                return;
+            }
+
+            tradeChart = LightweightCharts.createChart(elements.tradingviewChartContainer, {
+                width: elements.tradingviewChartContainer.clientWidth,
+                height: elements.tradingviewChartContainer.clientHeight,
+                layout: {
+                    background: { type: LightweightCharts.ColorType.Solid, color: '#1a202c' },
+                    textColor: '#e2e8f0',
+                },
+                grid: {
+                    vertLines: { color: '#4a5568' },
+                    horzLines: { color: '#4a5568' },
+                },
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: true,
+                    borderColor: '#4a5568',
+                },
+                rightPriceScale: {
+                    borderColor: '#4a5568',
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                autoSize: true, 
+            });
+
+            candleSeries = tradeChart.addCandlestickSeries({
+                upColor: '#10b981', 
+                downColor: '#ef4444', 
+                borderVisible: false,
+                wickUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+            });
+
+            const formattedData = data.map(d => ({
+                time: d.time, 
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close,
+            }));
+            candleSeries.setData(formattedData);
+
+            const latestCandle = data[data.length - 1]; 
+            if (latestCandle && latestCandle.ATR > 0 && config.atr_sl_multiplier > 0) {
+                const atr_value = latestCandle.ATR;
+                const entryPrice = latestCandle.close; // Use latest close as a proxy entry for visualization for current candle
+
+                // Determine a simulated trade type for drawing SL/TP lines
+                // Simplistic: if last candle is bullish, assume BUY for visualization
+                let simulatedTradeType = latestCandle.close >= latestCandle.open ? 'BUY' : 'SELL';
+
+                let sl_distance = atr_value * config.atr_sl_multiplier;
+                
+                let sl_price_calc;
+                if (simulatedTradeType === 'BUY') {
+                    sl_price_calc = entryPrice - sl_distance;
+                } else { // SELL
+                    sl_price_calc = entryPrice + sl_distance;
+                }
+                
+                const pricePrecision = 5; 
+                sl_price_calc = parseFloat(sl_price_calc.toFixed(pricePrecision));
+
+                slPriceLine = candleSeries.createPriceLine({
+                    price: sl_price_calc,
+                    color: '#ef4444', 
+                    lineWidth: 2,
+                    lineStyle: LightweightCharts.LineStyle.Solid, 
+                    axisLabelVisible: true,
+                    title: 'SL',
+                });
+                
+                tpPriceLines = []; // Reset TP lines
+                (config.tp_levels_multiplier || []).forEach((multiplier, index) => {
+                    let tp_price_calc;
+                    const tp_distance_from_sl_base = atr_value * config.atr_sl_multiplier; // Use ATR-based SL distance as base
+                    const tp_distance_from_sl = tp_distance_from_sl_base * multiplier;
+                    
+                    if (simulatedTradeType === 'BUY') {
+                        tp_price_calc = entryPrice + tp_distance_from_sl;
+                    } else { // SELL
+                        tp_price_calc = entryPrice - tp_distance_from_sl;
+                    }
+                    tp_price_calc = parseFloat(tp_price_calc.toFixed(pricePrecision));
+
+                    const tpLine = candleSeries.createPriceLine({
+                        price: tp_price_calc,
+                        color: '#10b981', 
+                        lineWidth: 2,
+                        lineStyle: LightweightCharts.LineStyle.Dotted,
+                        axisLabelVisible: true,
+                        title: `TP${index + 1}`,
+                    });
+                    tpPriceLines.push(tpLine);
+                });
+            }
+
+            tradeChart.resize(elements.tradingviewChartContainer.clientWidth, elements.tradingviewChartContainer.clientHeight);
+
+            window.addEventListener('resize', () => {
+                tradeChart.resize(elements.tradingviewChartContainer.clientWidth, elements.tradingviewChartContainer.clientHeight);
+            });
+        }
+        
+        function renderBacktestResults(results) {
+            if (!results) {
+                elements.backtestSummary.innerHTML = '<p class="text-gray-400">Backtest non trovato o non ancora completato.</p>';
+                elements.backtestTradeLog.innerHTML = '<p class="text-gray-400">Il log dei trade apparirà qui.</p>';
+                if (equityChartInstance) { 
+                    equityChartInstance.destroy();
+                    equityChartInstance = null;
+                }
+                return;
+            }
+
+            elements.backtestSummary.innerHTML = `
+                <p class="text-gray-100 font-semibold">Capitale Iniziale: ${formatCurrency(results.initial_capital)}</p>
+                <p class="text-gray-100 font-semibold">Capitale Finale: ${formatCurrency(results.final_capital)}</p>
+                <p class="text-gray-100 font-semibold">Rendimento Totale: <span class="${results.total_return_percent >= 0 ? 'text-green-400' : 'text-red-400'}">${formatPercentage(results.total_return_percent)}</span></p>
+                <p class="text-gray-100 font-semibold">Max Drawdown: <span class="${results.max_drawdown_percent <= 0 ? 'text-green-400' : 'text-red-400'}">${formatPercentage(results.max_drawdown_percent)}</span></p>
+                <p class="text-gray-100 font-semibold">Profit Factor: <span class="font-medium">${results.profit_factor}</span></p>
+                <p class="text-gray-100 font-semibold">Trade Totali: ${results.total_trades}</p>
+                <p class="text-gray-100 font-semibold">Trade Vincenti: ${results.winning_trades}</p>
+                <p class="text-gray-100 font-semibold">Trade Perdenti: ${results.losing_trades}</p>
+            `;
+
+            elements.backtestTradeLog.innerHTML = '';
+            if (results.trade_log && results.trade_log.length > 0) {
+                results.trade_log.sort((a, b) => new Date(b.time) - new Date(a.time)); 
+                results.trade_log.forEach(trade => {
+                    let tradeClass = 'trade-log-item';
+                    let profitLossDisplay = ''; 
+
+                    if (trade.action.startsWith('OPEN_SUB_TRADE')) { // Modified to match backtest log
+                        tradeClass += ' open border-blue-500';
+                    } else if (trade.action.startsWith('CLOSE')) {
+                        if (trade.profit_loss > 0) {
+                            tradeClass += ' close-tp border-green-500';
+                            profitLossDisplay = `<p class="text-sm font-semibold text-green-400">P/L: ${formatCurrency(trade.profit_loss)}</p>`;
+                        } else {
+                            tradeClass += ' close-sl border-red-500';
+                            profitLossDisplay = `<p class="text-sm font-semibold text-red-400">P/L: ${formatCurrency(trade.profit_loss)}</p>`;
+                        }
+                        if (trade.action === 'CLOSE_EOD') { 
+                            tradeClass = tradeClass.replace('border-green-500', 'border-yellow-500').replace('border-red-500', 'border-yellow-500');
+                        }
+                    } else if (trade.action.startsWith('Failed Open')) {
+                        tradeClass += ' failed-open border-red-500';
+                    }
+
+                    const entryPrice = trade.entry_price ? `Entry: ${trade.entry_price.toFixed(5)}` : 'N/A';
+                    const closePrice = trade.close_price ? `Close: ${trade.close_price.toFixed(5)}` : 'N/A';
+                    const sl = trade.sl !== undefined && trade.sl !== 0 ? `SL: ${trade.sl.toFixed(5)}` : 'N/A'; 
+                    const tp = trade.tp !== undefined && trade.tp !== 0 ? `TP: ${trade.tp.toFixed(5)}` : 'N/A'; 
+                    const aiConfidence = trade.ai_confidence ? `AI Confidenza: ${trade.ai_confidence}%` : '';
+
+                    const tradeHtml = `
+                        <div class="bg-gray-700 p-3 rounded-md shadow-sm ${tradeClass}">
+                            <p class="text-xs text-gray-400 mb-1">${new Date(trade.time).toLocaleString()}</p>
+                            <p class="text-gray-100 font-semibold">${trade.action} ${trade.symbol} - ${trade.type === 0 ? 'BUY' : 'SELL'} ${trade.volume} lotti</p>
+                            <p class="text-sm text-gray-300">${entryPrice} ${closePrice}</p>
+                            <p class="text-sm text-gray-300">${sl} ${tp}</p>
+                            ${profitLossDisplay}
+                            <p class="text-xs text-gray-400 mt-1">Strategy: ${trade.strategy || 'N/A'}</p>
+                            ${aiConfidence ? `<p class="text-xs text-gray-400">${aiConfidence}</p>` : ''}
+                            ${trade.ai_analysis ? `<p class="text-xs text-gray-400 mt-1">AI: ${trade.ai_analysis}</p>` : ''}
+                        </div>
+                    `;
+                    elements.backtestTradeLog.insertAdjacentHTML('beforeend', tradeHtml);
+                });
+            } else {
+                 elements.backtestTradeLog.innerHTML = '<p class="text-gray-400">Nessun trade registrato durante il backtest.</p>';
+            }
+
+            if (equityChartInstance) {
+                equityChartInstance.destroy();
+                equityChartInstance = null;
+            }
+            equityChartInstance = new Chart(elements.equityChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: results.equity_curve.length}, (_, i) => i + 1),
+                    datasets: [{
+                        label: 'Equity Curve',
+                        data: results.equity_curve,
+                        borderColor: '#3b82f6', 
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)', 
+                        fill: true, 
+                        tension: 0.1 
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, 
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e2e8f0' 
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#a0aec0' }, 
+                            grid: { color: '#4a5568' } 
+                        },
+                        y: {
+                            ticks: { color: '#a0aec0' },
+                            grid: { color: '#4a5568' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderStrategyCheckboxes(strategies) {
+            elements.strategyCheckboxes.innerHTML = ''; 
+            strategies.forEach(strategy => {
+                const checkboxDiv = `
+                    <div class="flex items-center">
+                        <input type="checkbox" id="strategy_${strategy}" value="${strategy}" checked class="form-checkbox h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
+                        <label for="strategy_${strategy}" class="ml-2 text-gray-300">${strategy}</label>
+                    </div>
+                `;
+                elements.strategyCheckboxes.insertAdjacentHTML('beforeend', checkboxDiv);
+            });
+        }
+
+        function setupEventListeners() {
+            elements.mt5LoginForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); 
+                toggleLoading(elements.mt5LoginBtnText, elements.mt5LoginLoader, true); 
+                elements.mt5LoginMessage.textContent = ''; 
+                elements.mt5LoginMessage.className = 'text-sm mt-3'; 
+
+                const login = elements.mt5Login.value;
+                const password = elements.mt5Password.value;
+                const server = elements.mt5Server.value;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/login_mt5`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ login, password, server })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        elements.mt5LoginMessage.textContent = data.message;
+                        elements.mt5LoginMessage.classList.add('text-green-500');
+                        await fetchStatus(); 
+                    } else {
+                        elements.mt5LoginMessage.textContent = `Errore MT5: ${data.message}`;
+                        elements.mt5LoginMessage.classList.add('text-red-500');
+                    }
+                } catch (error) {
+                    elements.mt5LoginMessage.textContent = `Errore di rete: ${error.message}`;
+                    elements.mt5LoginMessage.classList.add('text-red-500');
+                    console.error('Error during MT5 login:', error);
+                } finally {
+                    toggleLoading(elements.mt5LoginBtnText, elements.mt5LoginLoader, false); 
+                }
+            });
+
+            elements.aiConfigForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); 
+                toggleLoading(elements.aiConfigBtnText, elements.aiConfigLoader, true); 
+                elements.aiConfigMessage.textContent = ''; 
+                elements.aiConfigMessage.className = 'text-sm mt-3'; 
+
+                const gemini_api_key = elements.geminiApiKey.value;
+                const openai_api_key = elements.openaiApiKey.value;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/configure_ai`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gemini_api_key, openai_api_key })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        elements.aiConfigMessage.textContent = data.message;
+                        elements.aiConfigMessage.classList.add('text-green-500');
+                        await fetchStatus(); 
+                    } else {
+                        elements.aiConfigMessage.textContent = `Errore AI: ${data.message}`;
+                        elements.aiConfigMessage.classList.add('text-red-500');
+                    }
+                } catch (error) {
+                    elements.aiConfigMessage.textContent = `Errore di rete: ${error.message}`;
+                    elements.aiConfigMessage.classList.add('text-red-500');
+                    console.error('Error during AI config:', error);
+                } finally {
+                    toggleLoading(elements.aiConfigBtnText, elements.aiConfigLoader, false); 
+                }
+            });
+
+            elements.sendMessageBtn.addEventListener('click', async () => {
+                const message = elements.chatInput.value.trim();
+                const symbol = elements.chatSymbolSelect.value || "";
+                const timeframe = elements.chatTimeframeSelect.value || "";
+
+                if (!message && !symbol && !timeframe) { 
+                    showMessageModal('Attenzione', 'Inserisci un messaggio per la chat AI o seleziona almeno un simbolo/timeframe per un\'analisi generale.');
+                    return;
+                }
+                
+                const view_context = { symbol, timeframe };
+
+                elements.chatOutput.innerHTML += `
+                    <div class="text-right text-gray-300">
+                        <p class="font-bold">Tu:</p>
+                        <p>${message}</p>
+                    </div>
+                `;
+                elements.chatOutput.scrollTop = elements.chatOutput.scrollHeight; 
+
+                toggleLoading(elements.chatBtnText, elements.chatLoader, true); 
+                elements.chatInput.value = ''; 
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/chat_with_fusionai`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message, view_context })
+                    });
+                    const data = await response.json();
+
+                    const actionClass = {
+                        "BUY": "text-green-400",
+                        "SELL": "text-red-400",
+                        "WAIT": "text-yellow-400",
+                        "ERROR": "text-red-400",
+                        "N/A": "text-gray-400"
+                    }[data.action || 'N/A']; 
+
+                    const confidenceDisplay = data.confidence_score !== undefined ? `<span class="text-xs text-gray-400">Confidenza: ${data.confidence_score}%</span>` : '';
+                    const symbolTimeframeDisplay = data.symbol ? `<span class="text-xs text-gray-400">(${data.symbol}${timeframe ? ' ' + timeframe : ''})</span>` : '';
+
+                    elements.chatOutput.innerHTML += `
+                        <div class="text-left text-blue-300">
+                            <p class="font-bold">FusionAI:</p>
+                            <p>${data.analysis_text}</p>
+                            <p class="mt-1">Azione: <span class="${actionClass} font-semibold">${data.action}</span> ${confidenceDisplay} ${symbolTimeframeDisplay}</p>
+                        </div>
+                    `;
+                    elements.chatOutput.scrollTop = elements.chatOutput.scrollHeight; 
+
+                } catch (error) {
+                    elements.chatOutput.innerHTML += `<div class="text-red-400">Errore AI: ${error.message}</div>`;
+                    console.error('Error during chat:', error);
+                } finally {
+                    toggleLoading(elements.chatBtnText, elements.chatLoader, false); 
+                }
+            });
+
+            elements.chartSymbol.addEventListener('change', () => fetchChartDataAndSentiment());
+            elements.chartTimeframe.addEventListener('change', () => fetchChartDataAndSentiment());
+
+            elements.autoTradeToggle.addEventListener('change', async (e) => {
+                const enable = e.target.checked; 
+                try {
+                    const response = await fetch(`${API_BASE_URL}/toggle_autotrade`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enable })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showMessageModal('Aggiornamento Configurazione', data.message);
+                    } else {
+                        showMessageModal('Errore Aggiornamento Configurazione', data.message);
+                    }
+                } catch (error) {
+                    showMessageModal('Errore di rete', `Impossibile aggiornare auto-trading: ${error.message}`);
+                    console.error('Error toggling autotrade:', error);
+                }
+            });
+
+            elements.updateConfigBtn.addEventListener('click', async () => {
+                const configToUpdate = {
+                    risk_percentage_per_trade: parseFloat(elements.riskPct.value),
+                    atr_sl_multiplier: parseFloat(elements.atrMultiplier.value),
+                    risk_reward_ratio: parseFloat(elements.rrRatio.value),
+                    slippage_points: parseInt(elements.slippagePoints.value),
+                    max_open_trades_per_symbol: parseInt(elements.maxOpenTradesPerSymbol.value), 
+                    tp_levels_multiplier: elements.tpLevelsMultiplier.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n)), 
+                    max_lot_xau_btc: parseFloat(elements.maxLotXauBtc.value), 
+                    max_lot_other_symbols: parseFloat(elements.maxLotOtherSymbols.value), 
+                };
+
+                if (configToUpdate.tp_levels_multiplier.length === 0 && elements.tpLevelsMultiplier.value.trim() !== '') {
+                    showMessageModal('Errore Configurazione', 'Moltiplicatori TP non validi. Inserisci numeri separati da virgola (es. 1.0,1.5,2.0).');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/update_config`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(configToUpdate)
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showMessageModal('Aggiornamento Configurazione', data.message);
+                        await fetchStatus(); 
+                    } else {
+                        showMessageModal('Errore Aggiornamento Configurazione', data.message);
+                    }
+                } catch (error) {
+                    showMessageModal('Errore di rete', `Impossibile aggiornare la configurazione: ${error.message}`);
+                    console.error('Error updating config:', error);
+                }
+            });
+
+            elements.backtestForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); 
+                toggleLoading(elements.runBacktestBtnText, elements.backtestLoader, true); 
+                elements.backtestMessage.textContent = ''; 
+                elements.backtestMessage.className = 'text-sm mt-3';
+                elements.backtestSummary.innerHTML = '<p class="text-gray-400">Avvio backtest...</p>';
+                elements.backtestTradeLog.innerHTML = '<p class="text-400">Attendere il completamento del backtest.</p>';
+                if (equityChartInstance) { 
+                    equityChartInstance.destroy();
+                    equityChartInstance = null;
+                }
+
+                const symbol = elements.backtestSymbol.value;
+                const timeframe = elements.backtestTimeframe.value;
+                const start_date = elements.backtestStartDate.value;
+                const end_date = elements.backtestEndDate.value;
+                const initial_capital = parseFloat(elements.backtestCapital.value);
+                const strategies_to_test = Array.from(elements.strategyCheckboxes.querySelectorAll('input[type="checkbox"]:checked'))
+                                                    .map(cb => cb.value);
+
+                if (strategies_to_test.length === 0) {
+                    showMessageModal("Attenzione", "Seleziona almeno una strategia per il backtest.");
+                    toggleLoading(elements.runBacktestBtnText, elements.backtestLoader, false);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/run_backtest`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symbol, timeframe, start_date, end_date, initial_capital, strategies_to_test })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        elements.backtestMessage.textContent = data.message;
+                        elements.backtestMessage.classList.add('text-green-500');
+                        let pollInterval = setInterval(async () => {
+                            const resultsResponse = await fetch(`${API_BASE_URL}/get_backtest_results/${data.backtest_id}`);
+                            const resultsData = await resultsResponse.json();
+                            if (resultsData.success) {
+                                clearInterval(pollInterval); 
+                                renderBacktestResults(resultsData.results); 
+                                toggleLoading(elements.runBacktestBtnText, elements.backtestLoader, false);
+                                elements.backtestMessage.textContent = 'Backtest completato.';
+                                elements.backtestMessage.classList.add('text-green-500');
+                            } else if (resultsResponse.status === 404) {
+                                elements.backtestMessage.textContent = 'Backtest in corso...';
+                                elements.backtestMessage.classList.add('text-yellow-500');
+                            } else {
+                                clearInterval(pollInterval);
+                                elements.backtestMessage.textContent = `Errore nel recupero risultati: ${resultsData.message}`;
+                                elements.backtestMessage.classList.add('text-red-500');
+                                toggleLoading(elements.runBacktestBtnText, elements.backtestLoader, false);
+                            }
+                        }, 5000); 
+                    } else {
+                        elements.backtestMessage.textContent = `Errore Backtest: ${data.message}`;
+                        elements.backtestMessage.classList.add('text-red-500');
+                        toggleLoading(elements.runBacktestBtnText, elements.backtestLoader, false);
+                    }
+                } catch (error) {
+                    elements.backtestMessage.textContent = `Errore di rete: ${error.message}`;
+                    elements.backtestMessage.classList.add('text-red-500');
+                    console.error('Error running backtest:', error);
+                    toggleLoading(elements.runBacktestBtnText, elements.backtestLoader, false);
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            elements = {
+                messageModal: document.getElementById('messageModal'),
+                modalMessage: document.getElementById('modalMessage'),
+                modalDetails: document.getElementById('modalDetails'),
+                loginSection: document.getElementById('login-section'),
+                dashboardSection: document.getElementById('dashboard-section'),
+                mt5LoginForm: document.getElementById('login-form'),
+                aiConfigForm: document.getElementById('ai-config-form'),
+                mt5LoginMessage: document.getElementById('mt5LoginMessage'),
+                aiConfigMessage: document.getElementById('aiConfigMessage'),
+                mt5LoginBtnText: document.getElementById('mt5LoginBtnText'),
+                mt5LoginLoader: document.getElementById('mt5LoginLoader'),
+                aiConfigBtnText: document.getElementById('aiConfigBtnText'),
+                aiConfigLoader: document.getElementById('aiConfigLoader'),
+                
+                mt5Login: document.getElementById('mt5Login'),
+                mt5Password: document.getElementById('mt5Password'),
+                mt5Server: document.getElementById('mt5Server'),
+                geminiApiKey: document.getElementById('geminiApiKey'),
+                openaiApiKey: document.getElementById('openaiApiKey'),
+
+                mt5Status: document.getElementById('mt5Status'),
+                aiStatus: document.getElementById('aiStatus'),
+                monitorStatus: document.getElementById('monitorStatus'),
+                scoutStatus: document.getElementById('scoutStatus'),
+                pmStatus: document.getElementById('pmStatus'),
+
+                accountBalance: document.getElementById('accountBalance'),
+                accountEquity: document.getElementById('accountEquity'),
+                accountProfit: document.getElementById('accountProfit'),
+                accountFreeMargin: document.getElementById('accountFreeMargin'),
+                dailyDD: document.getElementById('dailyDD'),
+                maxDailyDD: document.getElementById('maxDailyDD'),
+                dailyProfit: document.getElementById('dailyProfit'),
+                targetDailyProfit: document.getElementById('targetDailyProfit'),
+                weeklyDD: document.getElementById('weeklyDD'),
+                maxWeeklyDD: document.getElementById('maxWeeklyDD'),
+                weeklyProfit: document.getElementById('weeklyProfit'),
+                targetWeeklyProfit: document.getElementById('targetWeeklyProfit'),
+
+                openPositionsList: document.getElementById('openPositionsList'),
+                notificationsList: document.getElementById('notificationsList'),
+                chatInput: document.getElementById('chatInput'),
+                sendMessageBtn: document.getElementById('sendMessageBtn'),
+                chatOutput: document.getElementById('chatOutput'),
+                chatSymbolSelect: document.getElementById('chatSymbolSelect'),
+                chatTimeframeSelect: document.getElementById('chatTimeframeSelect'),
+                chatBtnText: document.getElementById('chatBtnText'),
+                chatLoader: document.getElementById('chatLoader'),
+
+                chartSymbol: document.getElementById('chartSymbol'),
+                chartTimeframe: document.getElementById('chartTimeframe'),
+                currentSentiment: document.getElementById('currentSentiment'),
+                tradeJournalList: document.getElementById('tradeJournalList'),
+
+                autoTradeToggle: document.getElementById('autoTradeToggle'),
+                riskPct: document.getElementById('riskPct'),
+                atrMultiplier: document.getElementById('atrMultiplier'),
+                rrRatio: document.getElementById('rrRatio'),
+                slippagePoints: document.getElementById('slippagePoints'),
+                updateConfigBtn: document.getElementById('updateConfigBtn'),
+
+                backtestForm: document.getElementById('backtestForm'),
+                backtestSymbol: document.getElementById('backtestSymbol'),
+                backtestTimeframe: document.getElementById('backtestTimeframe'),
+                backtestStartDate: document.getElementById('backtestStartDate'),
+                backtestEndDate: document.getElementById('backtestEndDate'),
+                backtestCapital: document.getElementById('backtestCapital'),
+                strategyCheckboxes: document.getElementById('strategyCheckboxes'),
+                runBacktestBtnText: document.getElementById('runBacktestBtnText'),
+                backtestLoader: document.getElementById('backtestLoader'),
+                backtestMessage: document.getElementById('backtestMessage'),
+                backtestSummary: document.getElementById('backtestSummary'),
+                equityChartCanvas: document.getElementById('equityChart'),
+                backtestTradeLog: document.getElementById('backtestTradeLog'),
+
+                maxOpenTradesPerSymbol: document.getElementById('maxOpenTradesPerSymbol'),
+                tpLevelsMultiplier: document.getElementById('tpLevelsMultiplier'),
+                maxLotXauBtc: document.getElementById('maxLotXauBtc'),
+                maxLotOtherSymbols: document.getElementById('maxLotOtherSymbols'),
+                tradingviewChartContainer: document.getElementById('tradingview-chart-container'),
+            };
+
+            setupEventListeners();
+
+            fetchStatus(); 
+            fetchTradeJournal(); 
+            fetchChartDataAndSentiment(); 
+
+            setInterval(fetchStatus, 5000); 
+            setInterval(fetchNotifications, 2000); 
+            setInterval(fetchTradeJournal, 10000); 
+            setInterval(fetchChartDataAndSentiment, 15000); 
+
+
+            const today = new Date();
+            const endDate = today.toISOString().split('T')[0]; 
+            const oneMonthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            const startDate = oneMonthAgo.toISOString().split('T')[0]; 
+            elements.backtestEndDate.value = endDate;
+            elements.backtestStartDate.value = startDate;
+        });
+    </script>
+</body>
+</html>
