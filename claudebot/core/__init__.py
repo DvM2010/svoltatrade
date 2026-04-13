@@ -1,0 +1,1 @@
+# CLAUDE BOT core package
